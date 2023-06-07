@@ -93,6 +93,10 @@ async def on_ready():
             f"{PRIDE_MESSAGES[0]} Pride month is here :D "
             f"{' '.join(list(reversed(PRIDE_MESSAGES[0].split())))}")
 
+    if MODE == Modes.PRIDE_MONTH:
+        await bot.change_presence(
+            activity=discord.Game(name="happy pride month!"))
+
     while True:
         sleep_time = random.randint(MIN_TIME, MAX_TIME)
         await asyncio.sleep(sleep_time)
