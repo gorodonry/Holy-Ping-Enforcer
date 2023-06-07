@@ -59,8 +59,8 @@ PRIDE_MESSAGES = [
     "<:purpleguy:1106524177663528990>"
 ]
 
-MIN_TIME = 60 * 60 * 3
-MAX_TIME = 60 * 60 * 30
+MIN_TIME = 60 * 60 * 3  # 3 hours (seconds)
+MAX_TIME = 60 * 60 * 30  # 30 hours (seconds)
 
 # Set up intents and bot.
 intents = discord.Intents.default()
