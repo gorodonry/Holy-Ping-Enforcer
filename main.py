@@ -27,6 +27,10 @@ class Modes(Enum):
     PRIDE_MONTH = 3
 
 
+# Associated constants for yes/no question function.
+VALID_ANSWERS = ("y", "yes", "n", "no")
+POSITIVE_ANSWERS = ("y", "yes")
+
 # Server information.
 USER_IDS = {"Ryan": 877750921474502717, "Sofia": 424719746869624865}
 CHANNEL_IDS = {
@@ -36,19 +40,18 @@ CHANNEL_IDS = {
     "Testing": 1113427709616463922
 }
 
-# Super important constants that determine this bot's fate.
-TARGET_ID = USER_IDS["Ryan"]
-MODE = Modes.PRIDE_MONTH
-PRIDE_MONTH_STARTING = False
+# Define global variables.
+target_id = None
+mode = None
 
 # Other also important constants.
 FEEDBACK_MESSAGES = [
     f"You've been naughty :index_pointing_at_the_viewer: - grabbing "
-    f"<@{TARGET_ID}> rn",
-    "404 Ping Not Found", f"Smhhh, no ping for <@{TARGET_ID}> :(((",
-    f"Shouldn't say such things without <@{TARGET_ID}> :pensive:",
+    f"<@{target_id}> rn",
+    "404 Ping Not Found", f"Smhhh, no ping for <@{target_id}> :(((",
+    f"Shouldn't say such things without <@{target_id}> :pensive:",
     "Nuh uh, that's not the kind of language we use in here",
-    f"Check the new admin policy re <@{TARGET_ID}>",
+    f"Check the new admin policy re <@{target_id}>",
     "<:angery:1092655340727849041>"
 ]
 
@@ -78,35 +81,90 @@ recent_channel = None
 sleep_time = 0
 
 
+def ask_yes_no_question(prompt):
+    """Asks a yes or no question and returns the answer as True or False."""
+    answer = ""
+    while answer not in VALID_ANSWERS:
+        answer = input(prompt).strip().lower()
+        if answer not in VALID_ANSWERS:
+            print("Please enter either yes or no.")
+    return answer in POSITIVE_ANSWERS
+
+
+def determine_target() -> str:
+    """Asks for a target and returns the user ID."""
+    print(f"Known entities: {', '.join(USER_IDS.keys)}")
+
+    valid_target = False
+    while not valid_target:
+        target = input("Pick a target: ").strip().lower().capitalize()
+        if target in USER_IDS.keys:
+            valid_target = True
+        else:
+            print("Invalid target.")
+
+    return USER_IDS[target]
+
+
 @bot.event
 async def on_ready():
-    global sleep_time
+    global sleep_time, mode, target_id
+
+    # Determine mode and target.
+    print("""Annoy everyone ---> 0
+Reminder ---> 1
+Random pings ---> 2
+Pride month ---> 3""")
+
+    mode_resolved = False
+    while not mode_resolved:
+        try:
+            mode = int(input("Enter your choice: ").strip())
+            if mode >= 0 and mode <= 3:
+                mode_resolved = True
+        except ValueError:
+            print("Don't be ridiculous.")
+
+    match mode:
+        case 0:
+            mode, target_id = Modes.ANNOY_EVERYONE, determine_target()
+        case 1:
+            mode, target_id = Modes.REMINDER, determine_target()
+        case 2:
+            mode, target_id = Modes.RANDOM_PINGS, determine_target()
+        case 3:
+            mode = Modes.PRIDE_MONTH
+            pride_month_starting = ask_yes_no_question(
+                "Is pride month starting? ")
+        case _:
+            raise ValueError("Mode undefined")
+
     print(f'Bot is ready. Logged in as {bot.user.name}')
 
     await bot.get_channel(CHANNEL_IDS["Testing"]).send("The bot has started")
 
-    if MODE not in (Modes.REMINDER, Modes.PRIDE_MONTH):
+    if mode not in (Modes.REMINDER, Modes.PRIDE_MONTH):
         return
 
-    if MODE == Modes.PRIDE_MONTH and PRIDE_MONTH_STARTING:
-        await bot.get_channel(CHANNEL_IDS["Announcements"]).send(
+    if mode == Modes.PRIDE_MONTH and pride_month_starting:
+        await bot.get_channel(CHANNEL_IDS["Testing"]).send(
             f"{PRIDE_MESSAGES[0]} Pride month is here :D "
             f"{' '.join(list(reversed(PRIDE_MESSAGES[0].split())))}")
 
-    if MODE == Modes.PRIDE_MONTH:
+    if mode == Modes.PRIDE_MONTH:
         await bot.change_presence(
             activity=discord.Game(name="happy pride month!"))
 
     while True:
         sleep_time = random.randint(MIN_TIME, MAX_TIME)
         await asyncio.sleep(sleep_time)
-        match MODE:
+        match mode:
             case Modes.REMINDER:
                 if recent_channel is not None:
                     await recent_channel.send(
-                        f"<@{TARGET_ID}> Here's your random reminder :)")
+                        f"<@{target_id}> Here's your random reminder :)")
             case Modes.PRIDE_MONTH:
-                await bot.get_channel(CHANNEL_IDS["General"]).send(
+                await bot.get_channel(CHANNEL_IDS["Testing"]).send(
                     random.choice(PRIDE_MESSAGES))
             case _:
                 pass
@@ -116,9 +174,9 @@ async def on_ready():
 async def on_message(message):
     global recent_channel
 
-    match MODE:
+    match mode:
         case Modes.ANNOY_EVERYONE:
-            if TARGET_ID not in [u.id for u in message.mentions]:
+            if target_id not in [u.id for u in message.mentions]:
                 await message.channel.send(
                     f"{message.author.mention} "
                     f"{random.choice(FEEDBACK_MESSAGES)}")
@@ -126,7 +184,7 @@ async def on_message(message):
             recent_channel = message.channel
         case Modes.RANDOM_PINGS:
             if random.randint(1, 100) > 98:
-                if TARGET_ID not in [u.id for u in message.mentions]:
+                if target_id not in [u.id for u in message.mentions]:
                     await message.channel.send(
                         f"{message.author.mention} "
                         f"{random.choice(FEEDBACK_MESSAGES)}")
@@ -138,8 +196,8 @@ async def on_message(message):
 
 @bot.event
 async def on_message_edit(before, after):
-    if MODE == Modes.ANNOY_EVERYONE and \
-        TARGET_ID not in [u.id for u in after.mentions]:
+    if mode == Modes.ANNOY_EVERYONE and \
+        target_id not in [u.id for u in after.mentions]:
         await after.channel.send(
             f"You though you were so clever didn't you {after.author.mention} "
             f">:C\n{random.choice(FEEDBACK_MESSAGES)}")
